@@ -1,7 +1,15 @@
 import pg from "pg";
 import Fastify from "fastify";
 import { drizzle } from "drizzle-orm/node-postgres";
-import { domainMetrics, portFromEnv, registerHealth, registerMetrics } from "@vellar/service-kit";
+import {
+  domainMetrics,
+  portFromEnv,
+  registerHealth,
+  registerMetrics,
+  signingKeyFromEnv,
+  verifySigningKeys,
+} from "@vellar/service-kit";
+import { Keypair } from "@stellar/stellar-sdk";
 import { configFromEnv, executorFromConfig } from "./config";
 import { createRpcArtifactResolver } from "./resolver";
 import { createPgJobStore } from "./pg-job-store";
@@ -116,6 +124,26 @@ if (config.attestorSecretKey && config.attestationRegistryId) {
       network: config.network,
       allowSingleKey: process.env.ALLOW_SINGLE_KEY_ATTESTOR === "1",
     });
+  } catch (err) {
+    safeLog("error", `[worker-service] ${err instanceof Error ? err.message : String(err)}`, err);
+    process.exit(1);
+  }
+  // Q3 (architecture-analysis.md §8): confirm ATTESTOR_SECRET_KEY is the
+  // pinned attestor account for the declared network (ATTESTOR_PUBLIC_KEY,
+  // required on mainnet). Refuses to boot on a mismatch or an unparseable key.
+  try {
+    const report = verifySigningKeys({
+      network: config.network,
+      keys: [signingKeyFromEnv("attestor")],
+      derivePublicKey: (secret) => Keypair.fromSecret(secret).publicKey(),
+      allowUnpinned: process.env.ALLOW_UNPINNED_SIGNING_KEYS === "1",
+    });
+    for (const key of report.keys) {
+      log.info(
+        `attestor key ${key.publicKey} accepted for ${report.network}` +
+          (key.pinned ? " (pinned)." : " (UNPINNED — testnet or explicit override)."),
+      );
+    }
   } catch (err) {
     safeLog("error", `[worker-service] ${err instanceof Error ? err.message : String(err)}`, err);
     process.exit(1);
