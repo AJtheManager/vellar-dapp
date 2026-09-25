@@ -136,6 +136,7 @@ export function OnboardingActions({
           {busy === "connect" ? "Signing in…" : "Sign in"}
         </LpActionButton>
       </div>
+      <span className="lp-verified self-center">Passkey secured · no seed phrase</span>
       {unsupported && (
         <p role="alert" className="lpa-bad text-[13px]">
           {support?.supported === false && support.reason === "insecure-context"
