@@ -20,6 +20,18 @@ import { usePaymentClient } from "@/lib/wallet-context";
 // Send flow (technical-doc.md §7.4): build -> explicit review -> passkey sign
 // -> submit -> track until final. Signing only ever happens from the review
 // step after the user clicks confirm — no silent signing (§8).
+//
+// A SEP-7 payment request (app/pay) enters through the SAME flow: it only
+// prefills the form (destination locked, amount locked if requested) and adds
+// the request's origin + message to the review. It never skips a step.
+
+/** Where a prefilled payment came from, shown on the form and the review (§8.2). */
+export interface PaymentRequestContext {
+  /** Verified SEP-7 origin domain, or null when the request is unsigned. */
+  originDomain: string | null;
+  /** The requester's note — untrusted, rendered as plain text only. */
+  msg?: string;
+}
 
 const formSchema = z.object({
   to: z.string().trim().min(1, "Recipient is required"),
@@ -40,11 +52,15 @@ export function SendPayment({
   token,
   network,
   onSuccess,
+  prefill,
+  request,
 }: {
   from: string;
   token: TokenInfo;
   network: Network;
   onSuccess: () => void;
+  prefill?: { to: string; amount?: string };
+  request?: PaymentRequestContext;
 }) {
   const getPayments = usePaymentClient();
   const [flow, setFlow] = useState<FlowState>({ step: "form" });
@@ -52,7 +68,7 @@ export function SendPayment({
 
   const form = useForm<FormValues>({
     resolver: zodResolver(formSchema),
-    defaultValues: { to: "", amount: "" },
+    defaultValues: { to: prefill?.to ?? "", amount: prefill?.amount ?? "" },
   });
 
   async function prepare(values: FormValues) {
@@ -104,6 +120,8 @@ export function SendPayment({
     <section className="lpa-panel">
       <Eyebrow>Send {token.symbol}</Eyebrow>
 
+      {request && <RequestBanner request={request} />}
+
       {flow.step === "form" && (
         <form
           onSubmit={(e) => void form.handleSubmit(prepare)(e)}
@@ -111,14 +129,23 @@ export function SendPayment({
         >
           <label className="lpa-field">
             <span className="flabel">Recipient</span>
-            <input {...form.register("to")} placeholder="G... or C..." />
+            <input
+              {...form.register("to")}
+              placeholder="G... or C..."
+              readOnly={prefill !== undefined}
+            />
             {form.formState.errors.to && (
               <span className="ferror">{form.formState.errors.to.message}</span>
             )}
           </label>
           <label className="lpa-field">
             <span className="flabel">Amount ({token.symbol})</span>
-            <input {...form.register("amount")} placeholder="0.0" inputMode="decimal" />
+            <input
+              {...form.register("amount")}
+              placeholder="0.0"
+              inputMode="decimal"
+              readOnly={prefill?.amount !== undefined}
+            />
             {form.formState.errors.amount && (
               <span className="ferror">{form.formState.errors.amount.message}</span>
             )}
@@ -141,8 +168,13 @@ export function SendPayment({
           <dl className="lpa-well flex flex-col gap-2.5 text-sm">
             {(
               [
+                ...(request
+                  ? ([["Requested by", request.originDomain ?? "Unverified source"]] as const)
+                  : []),
                 ["From", flow.prepared.review.from],
                 ["To", flow.prepared.review.to],
+                ["Token contract", flow.prepared.review.token.contractId],
+                ...(request?.msg ? ([["Message", request.msg]] as const) : []),
               ] as const
             ).map(([label, value]) => (
               <div key={label} className="flex justify-between gap-4">
@@ -217,5 +249,31 @@ export function SendPayment({
         </p>
       )}
     </section>
+  );
+}
+
+function RequestBanner({ request }: { request: PaymentRequestContext }) {
+  return (
+    <div className="lpa-well mt-3.5 flex flex-col gap-1.5 text-[13px]">
+      {request.originDomain ? (
+        <p className="m-0!">
+          Payment request from <strong>{request.originDomain}</strong> (signature verified against
+          its stellar.toml).
+        </p>
+      ) : (
+        <p className="m-0!">
+          Payment request from an <strong>unverified source</strong> — anyone can create a payment
+          link. Check the recipient before you pay.
+        </p>
+      )}
+      {request.msg && (
+        <p className="m-0! break-words text-[var(--lp-ink-soft)]">
+          Their message: &ldquo;{request.msg}&rdquo;
+        </p>
+      )}
+      <p className="m-0! text-[var(--lp-ink-soft)]">
+        Nothing is sent until you review and confirm with your passkey.
+      </p>
+    </div>
   );
 }
