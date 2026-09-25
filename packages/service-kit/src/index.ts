@@ -42,6 +42,22 @@ export {
 } from "./network-config";
 
 export {
+  verifySigningKeys,
+  probeSigningKeysOnChain,
+  signingKeyFromEnv,
+  relayerNetwork,
+  SigningKeyConfigError,
+  SIGNING_KEY_ENV,
+  type SigningKeyRole,
+  type SigningKeyInput,
+  type SigningKeyCheckInputs,
+  type SigningKeyReport,
+  type ResolvedSigningKey,
+  type AccountProbe,
+  type OnChainProbeResult,
+} from "./signing-keys";
+
+export {
   validatePublicResourceUrl,
   publicBaseUrlFromEnv,
   X402ResourceUrlError,
