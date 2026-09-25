@@ -1,6 +1,7 @@
 import {
   createPasskeyKitConnector,
   createPaymentClient,
+  defaultSignedToXdr,
   resumeKitConnection,
   type PasskeyKitLike,
   type PaymentClient,
@@ -10,6 +11,8 @@ import {
 import { walletConfig } from "./config";
 import { createHttpWalletBackend } from "./http-backend";
 import { createPolicySignerActions } from "./policy-signer";
+import { createSwapClient, type SwapClient } from "./swap/client";
+import { createSoroswapVenue } from "./swap/soroswap";
 import { createSignerActions, type AddAgentKeyInput } from "./signer-actions";
 import type { RawSigner, SignerKeyRef } from "./signer-model";
 
@@ -21,6 +24,8 @@ import type { RawSigner, SignerKeyRef } from "./signer-model";
 export interface WalletRuntime {
   connector: WalletConnector;
   payments: PaymentClient;
+  /** Soroswap swaps, signed by the same kit and submitted through the same backend. */
+  swaps: SwapClient;
   /**
    * Re-attaches the kit to the session's wallet after a page reload (no
    * WebAuthn prompt). Must run before signer operations or kit.sign throws
@@ -121,6 +126,17 @@ export function getWalletRuntime(): Promise<WalletRuntime> {
         backend,
         network: config.network,
         isValidAddress: isValidStellarAddress,
+      }),
+      swaps: createSwapClient({
+        venue: createSoroswapVenue({
+          network: config.network,
+          rpcUrl: config.rpcUrl,
+          networkPassphrase: config.networkPassphrase,
+        }),
+        kit: kit as unknown as { sign(tx: unknown): Promise<unknown> },
+        backend,
+        network: config.network,
+        signedToXdr: defaultSignedToXdr,
       }),
       resume: (keyId) => resumeKitConnection(kitLike, keyId),
       async addDeviceSigner(devicePublicKeyHex) {
@@ -273,4 +289,11 @@ export async function getRealPaymentClient(keyId: string | undefined): Promise<P
   const runtime = await getWalletRuntime();
   if (keyId) await runtime.resume(keyId);
   return runtime.payments;
+}
+
+/** Swap client with the kit connection resumed for the given session key. */
+export async function getRealSwapClient(keyId: string | undefined): Promise<SwapClient> {
+  const runtime = await getWalletRuntime();
+  if (keyId) await runtime.resume(keyId);
+  return runtime.swaps;
 }

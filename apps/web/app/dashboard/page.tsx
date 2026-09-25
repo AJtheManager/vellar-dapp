@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import { formatTokenAmount } from "vellar-sdk";
 import { AppShell } from "@/components/app-shell";
 import { Eyebrow, Frame, LpActionButton } from "@/app/landing/ui";
@@ -9,12 +10,13 @@ import { useWalletSession } from "@/lib/wallet-context";
 import { getAnalyticsTracker, walletCreationEvents } from "@/lib/analytics";
 import { ReceiveCard } from "./receive-card";
 import { SendPayment } from "./send-payment";
+import { SwapPanel } from "./swap-panel";
 
 // Wallet dashboard ("paper & signals" shell, design.md §8): panel grid —
 // Account overview (balance + details) · My assets · Activity. Send/Receive
 // open as focused panels replacing the grid.
 
-type Panel = "grid" | "send" | "receive";
+type Panel = "grid" | "send" | "receive" | "swap";
 
 export default function Dashboard() {
   const session = useWalletSession();
@@ -48,11 +50,16 @@ export default function Dashboard() {
       actions={[
         { label: "Send", onClick: () => setPanel("send"), primary: true },
         { label: "Receive", onClick: () => setPanel("receive") },
+        { label: "Swap", onClick: () => setPanel("swap") },
       ]}
     >
       {panel === "receive" && session && (
         <div className="max-w-[460px]">
-          <ReceiveCard accountId={session.accountId} onClose={() => setPanel("grid")} />
+          <ReceiveCard
+            accountId={session.accountId}
+            network={session.network}
+            onClose={() => setPanel("grid")}
+          />
         </div>
       )}
 
@@ -80,6 +87,28 @@ export default function Dashboard() {
               </p>
             </section>
           )}
+          <Link
+            href="/pay"
+            className="mt-3.5 block font-[family-name:var(--lp-mono)] text-xs font-bold text-[var(--lp-ink-faint)]"
+          >
+            Have a payment request link? Pay it →
+          </Link>
+        </div>
+      )}
+
+      {panel === "swap" && session && (
+        <div className="max-w-[460px]">
+          <button
+            onClick={() => setPanel("grid")}
+            className="mb-3.5 block cursor-pointer font-[family-name:var(--lp-mono)] text-xs font-bold text-[var(--lp-ink-faint)]"
+          >
+            ← Wallet
+          </button>
+          <SwapPanel
+            from={session.accountId}
+            network={session.network}
+            onSuccess={() => void balances.refetch()}
+          />
         </div>
       )}
 
