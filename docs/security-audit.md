@@ -1183,6 +1183,14 @@ the unaudited `vellar-sdk`/`passkey-kit`. (RA-11-E is verified and closed by tes
 is sound today. The residual open items are Low/Info (I1, RA-7, RA-6/L-3, RA-3/L-1/L-2/L-5) and are
 acceptable-with-documentation, not go/no-go gates.
 
+### External review (#415) — status
+
+**Not engaged** as of 2026-09-25. The scope package for the reviewer — all five in-tree contracts,
+the `passkey-kit` smart-wallet contract, the `vellar-sdk` / `passkey-kit` integration surface, the
+per-contract checklist, findings format, and the mandatory fix re-review — is in
+[`external-security-review-scope.md`](external-security-review-scope.md). This section is updated only
+after that review **and** its re-review complete. The go/no-go above does not change until then.
+
 ---
 
 ## Seam contract — the backend HTTP API the external `vellar-sdk` consumes
