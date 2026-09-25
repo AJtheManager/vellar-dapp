@@ -14,26 +14,22 @@ import {
 import type { PolicyDefinition } from "@vellar/types";
 import { PolicyDeployError, type PolicyDeployer } from "./deploy";
 import { generatePolicy, templates, type GeneratedPolicy } from "./templates";
-import {
-  AttachMismatchError,
-  AttachUnconfirmedError,
-  type TxLookup,
-} from "./verify-attach";
+import { AttachMismatchError, AttachUnconfirmedError, type TxLookup } from "./verify-attach";
 import { createCsrfPreHandler, generateCsrfToken } from "./csrf";
 import {
-  simulatePolicyDeploy,
+  deployBodySchema,
+  deployInstanceBodySchema,
+  generateBodySchema,
+  validateDefinition,
+  validatePolicyForDeployment,
+  validatePolicyInstance,
+} from "./validation";
+import {
   deployPolicyInstance,
+  simulatePolicyDeploy,
   verifyAndRecordAttach,
   type DeploymentDeps,
 } from "./deployment";
-import {
-  generateBodySchema,
-  deployBodySchema,
-  deployInstanceBodySchema,
-  validatePolicyDefinition as validateDefinition,
-  validatePolicyInstance,
-  validatePolicyForDeployment,
-} from "./validation";
 
 // Policy API (idea.md §11): validate → generate → (review) → deploy.
 // Generated policies persist for review/deploy (idea.md §9 policies table —
@@ -72,8 +68,6 @@ export function createMemoryPolicyRepository(): PolicyRepository {
     },
   };
 }
-
-
 
 export interface PolicyServiceDeps {
   policies?: PolicyRepository;
@@ -424,7 +418,7 @@ export function buildServer(deps: PolicyServiceDeps = {}): FastifyInstance {
       deployedAt: now().toISOString(),
     };
     await policies.update(record);
-    
+
     // Issue #347: emit analytics event for successful policy template deployment
     logEvent(request.log, "policy.deployed", {
       policyId: record.id,
@@ -432,7 +426,7 @@ export function buildServer(deps: PolicyServiceDeps = {}): FastifyInstance {
       walletId: record.instance?.wallet,
       deployedAt: record.deployment.deployedAt,
     });
-    
+
     return reply.send({ policy: record });
   });
 
